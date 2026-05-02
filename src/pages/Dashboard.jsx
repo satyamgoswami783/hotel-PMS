@@ -61,11 +61,21 @@ const KPICard = ({ title, value, trend, trendValue, icon: Icon, color, onClick }
 );
 
 const Dashboard = () => {
-  const { rooms, role, hotels, addToast } = useApp();
+  const { rooms, role, hotels, addToast, systemEvents, addBooking, guests } = useApp();
   const navigate = useNavigate();
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
+
+  // New Booking Form State
+  const [newBooking, setNewBooking] = useState({
+    guestName: '',
+    room: '',
+    checkIn: '',
+    checkOut: '',
+    amount: 150
+  });
 
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
 
@@ -76,6 +86,34 @@ const Dashboard = () => {
       setIsAuditModalOpen(false);
       addToast('Platform Audit Report generated and downloaded successfully!');
     }, 2000);
+  };
+
+  const handleDownloadReport = () => {
+    addToast('Generating Executive Report...');
+    setTimeout(() => {
+      const csvContent = "data:text/csv;charset=utf-8," 
+        + "Metric,Value\n"
+        + `Occupancy Rate,${occupancyRate}%\n`
+        + "Revenue Today,$12450\n"
+        + "Check-ins,8\n"
+        + "Check-outs,5";
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "hotel_report.csv");
+      document.body.appendChild(link);
+      link.click();
+      addToast('Executive Report downloaded!');
+    }, 1500);
+  };
+
+  const handleBookingSubmit = (e) => {
+    e.preventDefault();
+    const success = addBooking(newBooking);
+    if (success) {
+      setIsBookingModalOpen(false);
+      setNewBooking({ guestName: '', room: '', checkIn: '', checkOut: '', amount: 150 });
+    }
   };
 
   const occupancyRate = Math.round((rooms.filter(r => r.status === 'occupied').length / rooms.length) * 100);
@@ -100,7 +138,7 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card title="Global Revenue Growth" className="lg:col-span-2">
-            <div className="h-[350px] min-h-[350px] w-full">
+            <div className="h-[350px] min-h-[350px] w-full mt-4" style={{ minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data}>
                   <defs>
@@ -224,8 +262,8 @@ const Dashboard = () => {
           <p className="text-slate-500 mt-1">Real-time performance metrics for Grand Resort.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="secondary">Download Report</Button>
-          <Button>+ New Booking</Button>
+          <Button variant="secondary" onClick={handleDownloadReport}>Download Report</Button>
+          <Button onClick={() => setIsBookingModalOpen(true)}>+ New Booking</Button>
         </div>
       </div>
 
@@ -238,7 +276,7 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card title="Revenue Trends" className="lg:col-span-2">
-          <div className="h-[350px] min-h-[350px] w-full">
+          <div className="h-[350px] min-h-[350px] w-full mt-4" style={{ minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data}>
                 <defs>
@@ -257,26 +295,26 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        <Card title="Operational Alerts" action={<Button variant="ghost" className="text-xs">View All</Button>}>
+        <Card title="Operational Alerts" action={<Button variant="ghost" className="text-xs" onClick={() => navigate('/notifications')}>View All</Button>}>
           <div className="space-y-6">
-            <div className="flex gap-4 group cursor-pointer">
-              <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center bg-purple-100 text-purple-600">
-                <Users size={20} />
+            {systemEvents.length > 0 ? systemEvents.slice(0, 3).map(event => (
+              <div key={event.id} className="flex gap-4 group cursor-pointer">
+                <div className={cn(
+                  "w-10 h-10 rounded-xl shrink-0 flex items-center justify-center",
+                  event.type === 'warning' ? "bg-rose-100 text-rose-600" : "bg-primary-100 text-primary-600"
+                )}>
+                  {event.type === 'warning' ? <AlertCircle size={20} /> : <Activity size={20} />}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{event.message}</p>
+                  <p className="text-xs text-slate-400 mt-1">{event.time}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-bold text-slate-800">VIP Guest arriving at 3:00 PM</p>
-                <p className="text-xs text-slate-400 mt-1">10 mins ago</p>
+            )) : (
+              <div className="text-center py-8">
+                <p className="text-sm text-slate-400">No active alerts</p>
               </div>
-            </div>
-            <div className="flex gap-4 group cursor-pointer">
-              <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center bg-rose-100 text-rose-600">
-                <AlertCircle size={20} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-800">Pending payment for Room 103</p>
-                <p className="text-xs text-slate-400 mt-1">1 hour ago</p>
-              </div>
-            </div>
+            )}
           </div>
         </Card>
       </div>
@@ -300,6 +338,73 @@ const Dashboard = () => {
           ))}
         </div>
       </Card>
+
+      <Modal isOpen={isBookingModalOpen} onClose={() => setIsBookingModalOpen(false)} title="New Booking">
+        <form onSubmit={handleBookingSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Guest Name</label>
+              <input 
+                type="text" 
+                required
+                className="input-field" 
+                value={newBooking.guestName}
+                onChange={(e) => setNewBooking({...newBooking, guestName: e.target.value})}
+                placeholder="Full Name"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Room Number</label>
+              <select 
+                className="input-field"
+                required
+                value={newBooking.room}
+                onChange={(e) => setNewBooking({...newBooking, room: e.target.value})}
+              >
+                <option value="">Select Room</option>
+                {rooms.filter(r => r.status === 'vacant').map(r => (
+                  <option key={r.id} value={r.id}>Room {r.id} ({r.type})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Payment Status</label>
+              <select 
+                className="input-field"
+                value={newBooking.paymentStatus}
+                onChange={(e) => setNewBooking({...newBooking, paymentStatus: e.target.value})}
+              >
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Check-In</label>
+              <input 
+                type="date" 
+                required
+                className="input-field" 
+                value={newBooking.checkIn}
+                onChange={(e) => setNewBooking({...newBooking, checkIn: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Check-Out</label>
+              <input 
+                type="date" 
+                required
+                className="input-field" 
+                value={newBooking.checkOut}
+                onChange={(e) => setNewBooking({...newBooking, checkOut: e.target.value})}
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" className="flex-1" onClick={() => setIsBookingModalOpen(false)}>Cancel</Button>
+            <Button type="submit" className="flex-1">Create Booking</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

@@ -34,7 +34,7 @@ const data = [
 ];
 
 const Analytics = () => {
-  const { addToast } = useApp();
+  const { addToast, invoices, bookings, guests } = useApp();
   const [filter, setFilter] = useState('30 Days');
   const [isExporting, setIsExporting] = useState(false);
   
@@ -83,6 +83,10 @@ const Analytics = () => {
     }, 1500);
   };
 
+  const totalRevenue = invoices.reduce((acc, inv) => inv.status === 'Paid' ? acc + inv.amount : acc, 0);
+  const avgBookingVal = totalRevenue / (invoices.filter(i => i.status === 'Paid').length || 1);
+  const occupancyRate = (bookings.filter(b => b.status === 'checked-in').length / 10) * 100; // Assuming 10 rooms total
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -92,17 +96,14 @@ const Analytics = () => {
         </div>
         <div className="flex gap-3">
           <div className="flex bg-white rounded-xl border border-slate-200 p-1 shadow-sm">
-            <Button 
-              variant="ghost" 
-              className={cn("text-xs h-8 px-3", filter === 'Last 7 Days' && "bg-slate-50 font-bold text-slate-900")}
-              onClick={() => setFilter('Last 7 Days')}
-            >Last 7 Days</Button>
-            <Button 
-              variant="ghost" 
-              className={cn("text-xs h-8 px-3", filter === '30 Days' && "bg-slate-50 font-bold text-slate-900")}
-              onClick={() => setFilter('30 Days')}
-            >Last 30 Days</Button>
-            <Button variant="ghost" className="text-xs h-8 px-3">YTD</Button>
+            {['Last 7 Days', '30 Days', 'YTD'].map(f => (
+              <Button 
+                key={f}
+                variant="ghost" 
+                className={cn("text-xs h-8 px-3", filter === f && "bg-slate-50 font-bold text-slate-900")}
+                onClick={() => setFilter(f)}
+              >{f}</Button>
+            ))}
           </div>
           <Button 
             className="gap-2" 
@@ -121,37 +122,37 @@ const Analytics = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-primary-600 text-white border-0">
           <p className="text-primary-200 text-[10px] font-bold uppercase tracking-widest">Total Revenue</p>
-          <h2 className="text-3xl font-black mt-1">$324,500</h2>
+          <h2 className="text-3xl font-black mt-1">${totalRevenue.toLocaleString()}</h2>
           <div className="flex items-center gap-1 text-xs text-primary-200 mt-4">
             <TrendingUp size={14} /> +18.4% from last period
           </div>
         </Card>
         <Card>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Avg. Daily Rate</p>
-          <h2 className="text-3xl font-black text-slate-800 mt-1">$185.00</h2>
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Avg. Booking Value</p>
+          <h2 className="text-3xl font-black text-slate-800 mt-1">${avgBookingVal.toFixed(2)}</h2>
           <div className="flex items-center gap-1 text-xs text-emerald-600 mt-4 font-bold">
             <TrendingUp size={14} /> +4.2%
           </div>
         </Card>
         <Card>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">RevPAR</p>
-          <h2 className="text-3xl font-black text-slate-800 mt-1">$142.40</h2>
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Occupancy Rate</p>
+          <h2 className="text-3xl font-black text-slate-800 mt-1">{occupancyRate}%</h2>
           <div className="flex items-center gap-1 text-xs text-rose-600 mt-4 font-bold">
             <TrendingUp size={14} className="rotate-180" /> -2.1%
           </div>
         </Card>
         <Card>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Guest Satisfaction</p>
-          <h2 className="text-3xl font-black text-slate-800 mt-1">4.8/5.0</h2>
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Loyalty Guests</p>
+          <h2 className="text-3xl font-black text-slate-800 mt-1">{guests.filter(g => g.status === 'VIP').length}</h2>
           <div className="flex items-center gap-1 text-xs text-emerald-600 mt-4 font-bold">
-            <TrendingUp size={14} /> +0.2
+            <TrendingUp size={14} /> +{guests.filter(g => g.status === 'VIP').length}
           </div>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card title="Monthly Revenue Performance" subtitle="Revenue trends for the current fiscal year">
-          <div className="h-[300px] min-h-[300px] mt-4">
+          <div className="h-[300px] min-h-[300px] w-full mt-4" style={{ minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -165,7 +166,7 @@ const Analytics = () => {
         </Card>
 
         <Card title="Occupancy Trends" subtitle="Property utilization percentage over time">
-          <div className="h-[300px] min-h-[300px] mt-4">
+          <div className="h-[300px] min-h-[300px] w-full mt-4" style={{ minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -178,6 +179,40 @@ const Analytics = () => {
           </div>
         </Card>
       </div>
+
+      <Card title="Top Revenue Guests" subtitle="Guest profiles contributing most to your revenue">
+        <div className="overflow-x-auto -mx-6">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left bg-slate-50/50">
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Guest</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Spent</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {guests.sort((a, b) => (b.spent || 0) - (a.spent || 0)).slice(0, 5).map((guest) => (
+                <tr key={guest.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
+                        {guest.name[0]}
+                      </div>
+                      <span className="text-sm font-bold text-slate-800">{guest.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm font-black text-slate-900">${(guest.spent || 0).toLocaleString()}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge variant={guest.status === 'VIP' ? 'primary' : 'slate'}>{guest.status}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 };

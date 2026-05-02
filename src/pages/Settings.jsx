@@ -35,6 +35,12 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState('Platform Settings');
   const [platformData, setPlatformData] = useState(platformSettings);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, label: 'Global Email Notifications', icon: Mail, status: true },
+    { id: 2, label: 'Critical SMS Alerts', icon: Smartphone, status: false },
+    { id: 3, label: 'System Webhook Triggers', icon: Terminal, status: true },
+    { id: 4, label: 'Daily Admin Digests', icon: Info, status: true },
+  ]);
   
   // Mock data for Roles Management
   const [roles, setRoles] = useState([
@@ -65,7 +71,14 @@ const Settings = () => {
 
   const handleSave = (e) => {
     if (e) e.preventDefault();
+    if (activeTab === 'Platform Settings') {
+      updatePlatformSettings(platformData);
+    }
     addToast(`${activeTab} saved successfully!`);
+  };
+
+  const toggleNotification = (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, status: !n.status } : n));
   };
 
   const renderContent = () => {
@@ -85,10 +98,15 @@ const Settings = () => {
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Platform Description</label>
-              <textarea className="input-field h-24 pt-3" placeholder="Describe the SaaS platform purpose..." defaultValue="Intelligent Auto-Pilot Hotel Management System. Multi-tenant SaaS architecture for global hospitality." />
+              <textarea 
+                className="input-field h-24 pt-3" 
+                placeholder="Describe the SaaS platform purpose..." 
+                value={platformData.description || 'Intelligent Auto-Pilot Hotel Management System.'} 
+                onChange={e => setPlatformData({...platformData, description: e.target.value})}
+              />
             </div>
             <div className="pt-6 border-t border-slate-50 flex justify-end gap-3">
-              <Button variant="secondary" type="button">Discard</Button>
+              <Button variant="secondary" type="button" onClick={() => setPlatformData(platformSettings)}>Discard</Button>
               <Button type="submit" className="gap-2"><Save size={16} /> Save Changes</Button>
             </div>
           </form>
@@ -206,28 +224,26 @@ const Settings = () => {
         return (
           <div className="space-y-6">
             <div className="space-y-4">
-              {[
-                { label: 'Global Email Notifications', icon: Mail, status: true },
-                { label: 'Critical SMS Alerts', icon: Smartphone, status: false },
-                { label: 'System Webhook Triggers', icon: Terminal, status: true },
-                { label: 'Daily Admin Digests', icon: Info, status: true },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              {notifications.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-slate-500 shadow-sm">
                       <item.icon size={20} />
                     </div>
                     <span className="text-sm font-bold text-slate-700">{item.label}</span>
                   </div>
-                  <div className={cn(
-                    "w-12 h-6 rounded-full p-1 cursor-pointer transition-colors",
-                    item.status ? "bg-primary-600" : "bg-slate-300"
-                  )}>
+                  <button 
+                    onClick={() => toggleNotification(item.id)}
+                    className={cn(
+                      "w-12 h-6 rounded-full p-1 cursor-pointer transition-colors relative",
+                      item.status ? "bg-primary-600" : "bg-slate-300"
+                    )}
+                  >
                     <div className={cn(
-                      "w-4 h-4 bg-white rounded-full transition-transform",
-                      item.status ? "translate-x-6" : "translate-x-0"
+                      "w-4 h-4 bg-white rounded-full transition-all shadow-sm absolute top-1",
+                      item.status ? "right-1" : "left-1"
                     )} />
-                  </div>
+                  </button>
                 </div>
               ))}
             </div>
@@ -261,7 +277,7 @@ const Settings = () => {
               </div>
             </div>
             <div className="pt-6 border-t border-slate-50 flex justify-end gap-3">
-              <Button variant="secondary" className="gap-2"><Key size={16} /> Update Keys</Button>
+              <Button variant="secondary" type="button" className="gap-2" onClick={() => addToast('Security keys rotated successfully!')}><Key size={16} /> Rotate Keys</Button>
               <Button type="submit">Save Security Policy</Button>
             </div>
           </form>
@@ -275,8 +291,7 @@ const Settings = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input type="text" className="input-field pl-10 h-10" placeholder="Search logs..." />
               </div>
-              <Button variant="secondary" className="h-10 text-xs gap-2"><RefreshCw size={14} /> Refresh</Button>
-              <Button variant="secondary" className="h-10 text-xs gap-2"><Download size={14} /> Export</Button>
+              <Button variant="secondary" className="h-10 text-xs gap-2" onClick={() => addToast('Refreshing system logs...')}><RefreshCw size={14} /> Refresh</Button>
             </div>
             <div className="space-y-3">
               {[
@@ -305,7 +320,7 @@ const Settings = () => {
 
       case 'Integrations':
         return (
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               { name: 'Stripe', desc: 'Global payments & billing', status: 'Connected', icon: CreditCard },
               { name: 'SendGrid', desc: 'Transactional email service', status: 'Disconnected', icon: Mail },
@@ -321,7 +336,7 @@ const Settings = () => {
                 </div>
                 <h4 className="text-sm font-bold text-slate-800">{int.name}</h4>
                 <p className="text-xs text-slate-500 mt-1">{int.desc}</p>
-                <Button variant="ghost" className="w-full mt-4 h-9 text-xs border border-slate-100">Configure</Button>
+                <Button variant="ghost" className="w-full mt-4 h-9 text-xs border border-slate-100" onClick={() => addToast(`Opening ${int.name} configuration...`)}>Configure</Button>
               </Card>
             ))}
           </div>

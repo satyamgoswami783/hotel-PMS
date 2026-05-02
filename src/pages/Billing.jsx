@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CreditCard, 
   Search, 
@@ -9,16 +9,54 @@ import {
   Clock,
   MoreHorizontal
 } from 'lucide-react';
-import { Card, Badge, Button } from '../components/common/UI';
+import { Card, Badge, Button, Modal } from '../components/common/UI';
+import { useApp } from '../context/AppContext';
 import { cn } from '../utils/cn';
 
 const Billing = () => {
-  const invoices = [
-    { id: 'INV-2026-001', guest: 'John Doe', room: '101', amount: 600, status: 'paid', date: '2026-05-01' },
-    { id: 'INV-2026-002', guest: 'Jane Smith', room: '103', amount: 450, status: 'pending', date: '2026-05-02' },
-    { id: 'INV-2026-003', guest: 'Robert Brown', room: '203', amount: 300, status: 'overdue', date: '2026-04-28' },
-    { id: 'INV-2026-004', guest: 'Alice Wilson', room: '302', amount: 1200, status: 'paid', date: '2026-04-25' },
-  ];
+  const { invoices, updateInvoiceStatus, addInvoice, addToast, guests } = useApp();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newInvoice, setNewInvoice] = useState({ guestName: '', amount: '', status: 'Unpaid', method: 'Credit Card' });
+
+  const handleSendInvoice = (id) => {
+    addToast(`Invoice ${id} sent to guest email.`);
+  };
+
+  const handleDownloadPDF = (inv) => {
+    addToast(`Generating PDF for ${inv.id}...`);
+    setTimeout(() => {
+      const content = `Invoice ID: ${inv.id}\nGuest: ${inv.guestName}\nAmount: $${inv.amount}\nStatus: ${inv.status}\nDate: ${inv.date}`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${inv.id}.pdf`;
+      link.click();
+      addToast('Invoice PDF downloaded.');
+    }, 1500);
+  };
+
+  const handleMarkPaid = (id) => {
+    updateInvoiceStatus(id, 'Paid');
+  };
+
+  const handleCreateInvoice = (e) => {
+    e.preventDefault();
+    addInvoice({ ...newInvoice, amount: parseFloat(newInvoice.amount) });
+    setIsCreateModalOpen(false);
+    setNewInvoice({ guestName: '', amount: '', status: 'Unpaid', method: 'Credit Card' });
+  };
+
+  const filteredInvoices = invoices.filter(inv => {
+    const matchesSearch = inv.guestName.toLowerCase().includes(searchQuery.toLowerCase()) || inv.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterStatus === 'All' || inv.status.toLowerCase() === filterStatus.toLowerCase();
+    return matchesSearch && matchesFilter;
+  });
+
+  const totalRevenue = invoices.reduce((acc, inv) => inv.status === 'Paid' ? acc + inv.amount : acc, 0);
+  const pendingRevenue = invoices.reduce((acc, inv) => inv.status !== 'Paid' ? acc + inv.amount : acc, 0);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -28,26 +66,37 @@ const Billing = () => {
           <p className="text-slate-500 mt-1">Track invoices, payments, and financial records.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="secondary" className="gap-2"><Download size={18} /> Export CSV</Button>
-          <Button className="gap-2"><CreditCard size={18} /> Terminal Sync</Button>
+          <Button variant="secondary" className="gap-2" onClick={() => addToast('Exporting financial records...')}><Download size={18} /> Export CSV</Button>
+          <Button className="gap-2" onClick={() => setIsCreateModalOpen(true)}><FileText size={18} /> Create Invoice</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2 p-0 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
             <div className="relative max-w-sm w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input 
                 type="text" 
                 placeholder="Find invoice or guest..."
                 className="input-field pl-10 h-10" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <div className="flex gap-2">
-              <Badge variant="slate">All</Badge>
-              <Badge variant="success" className="bg-transparent opacity-50">Paid</Badge>
-              <Badge variant="warning" className="bg-transparent opacity-50">Pending</Badge>
+              {['All', 'Paid', 'Pending', 'Unpaid'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status)}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold transition-all",
+                    filterStatus === status ? "bg-primary-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  )}
+                >
+                  {status}
+                </button>
+              ))}
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -55,42 +104,47 @@ const Billing = () => {
               <thead>
                 <tr className="bg-slate-50/50 text-left">
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Invoice ID</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Guest & Room</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Guest</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {invoices.map((inv) => (
+                {filteredInvoices.length > 0 ? filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <span className="text-sm font-bold text-slate-900">{inv.id}</span>
                       <p className="text-[10px] text-slate-400 mt-0.5">{inv.date}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-800">{inv.guest}</span>
-                        <span className="text-xs text-slate-500">Room {inv.room}</span>
-                      </div>
+                      <span className="text-sm font-bold text-slate-800">{inv.guestName}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-black text-slate-900">${inv.amount.toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant={inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'error' : 'warning'}>
+                      <Badge variant={inv.status.toLowerCase() === 'paid' ? 'success' : inv.status.toLowerCase() === 'overdue' ? 'error' : 'warning'}>
                         {inv.status}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="secondary" className="p-1.5 h-auto"><Send size={14} /></Button>
-                        <Button variant="secondary" className="p-1.5 h-auto"><Download size={14} /></Button>
-                        <Button variant="secondary" className="p-1.5 h-auto"><MoreHorizontal size={14} /></Button>
+                        {inv.status !== 'Paid' && (
+                          <Button variant="secondary" className="p-1.5 h-auto" onClick={() => handleMarkPaid(inv.id)} title="Mark Paid"><CheckCircle2 size={14} /></Button>
+                        )}
+                        <Button variant="secondary" className="p-1.5 h-auto" onClick={() => handleSendInvoice(inv.id)} title="Send Email"><Send size={14} /></Button>
+                        <Button variant="secondary" className="p-1.5 h-auto" onClick={() => handleDownloadPDF(inv)} title="Download PDF"><Download size={14} /></Button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center text-slate-400">
+                      No invoices found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -99,18 +153,17 @@ const Billing = () => {
         <div className="space-y-6">
           <Card title="Quick Statistics">
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                <p className="text-xs font-bold text-slate-500 uppercase">Total Revenue (MTD)</p>
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                <p className="text-xs font-bold text-emerald-600 uppercase">Total Revenue (Paid)</p>
                 <div className="flex items-end justify-between mt-1">
-                  <h3 className="text-2xl font-black text-slate-900">$142,500</h3>
-                  <span className="text-xs text-emerald-600 font-bold">+12.4%</span>
+                  <h3 className="text-2xl font-black text-emerald-700">${totalRevenue.toLocaleString()}</h3>
                 </div>
               </div>
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                <p className="text-xs font-bold text-slate-500 uppercase">Pending Payments</p>
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                <p className="text-xs font-bold text-amber-600 uppercase">Pending Payments</p>
                 <div className="flex items-end justify-between mt-1">
-                  <h3 className="text-2xl font-black text-amber-600">$12,840</h3>
-                  <span className="text-xs text-slate-400 font-bold">14 Invoices</span>
+                  <h3 className="text-2xl font-black text-amber-700">${pendingRevenue.toLocaleString()}</h3>
+                  <span className="text-xs text-slate-400 font-bold">{invoices.filter(inv => inv.status !== 'Paid').length} Invoices</span>
                 </div>
               </div>
             </div>
@@ -149,6 +202,51 @@ const Billing = () => {
           </Card>
         </div>
       </div>
+
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create New Invoice">
+        <form onSubmit={handleCreateInvoice} className="space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Guest Name</label>
+            <select 
+              className="input-field" 
+              required 
+              value={newInvoice.guestName}
+              onChange={(e) => setNewInvoice({ ...newInvoice, guestName: e.target.value })}
+            >
+              <option value="">Select Guest</option>
+              {guests.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Amount</label>
+            <input 
+              type="number" 
+              required 
+              className="input-field" 
+              value={newInvoice.amount}
+              onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
+              placeholder="0.00"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Payment Method</label>
+            <select 
+              className="input-field"
+              value={newInvoice.method}
+              onChange={(e) => setNewInvoice({ ...newInvoice, method: e.target.value })}
+            >
+              <option>Credit Card</option>
+              <option>Digital Wallet</option>
+              <option>Cash</option>
+              <option>Bank Transfer</option>
+            </select>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button variant="secondary" className="flex-1" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
+            <Button type="submit" className="flex-1">Generate Invoice</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
