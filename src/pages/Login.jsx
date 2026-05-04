@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Hotel, Mail, Lock, ArrowRight, Shield, User, Brush, UserSquare2 } from 'lucide-react';
 import { useApp, ROLES } from '../context/AppContext';
 import { Button, Card } from '../components/common/UI';
@@ -21,13 +21,27 @@ const Login = () => {
   const handleQuickLogin = (user) => {
     setEmail(user.email);
     setPassword(user.pass);
-    setRole(user.role);
+    // Note: We'll let handleLogin handle the actual state update
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (email && password) {
-      setIsAuthenticated(true);
+    const demoUser = demoUsers.find(u => u.email === email && u.pass === password);
+    
+    if (demoUser) {
+      setIsAuthenticated(true, {
+        name: demoUser.label,
+        email: demoUser.email,
+        role: demoUser.role
+      });
+      navigate('/');
+    } else if (email && password) {
+      // Default to Hotel Admin for unknown users for demo
+      setIsAuthenticated(true, {
+        name: email.split('@')[0],
+        email: email,
+        role: ROLES.HOTEL_ADMIN
+      });
       navigate('/');
     }
   };
@@ -123,6 +137,15 @@ const Login = () => {
               Sign In <ArrowRight size={20} />
             </Button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm font-medium text-slate-500">
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-primary-600 font-bold hover:text-primary-700 transition-colors">
+                Create an account
+              </Link>
+            </p>
+          </div>
 
           <div className="mt-12">
             <div className="relative flex items-center justify-center mb-8">

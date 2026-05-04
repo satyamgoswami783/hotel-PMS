@@ -5,24 +5,15 @@ import { Card, Badge, Button, Modal } from '../components/common/UI';
 import { cn } from '../utils/cn';
 
 const Automation = () => {
-  const { isAutoPilot, toggleAutoPilot, automationLogs, addToast } = useApp();
+  const { isAutoPilot, toggleAutoPilot, automationLogs, addToast, featureToggles, toggleFeatureToggle } = useApp();
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [supportForm, setSupportForm] = useState({ subject: '', priority: 'Medium', message: '' });
-  const [featureToggles, setFeatureToggles] = useState({
-    assignment: true,
-    housekeeping: true,
-    alerts: false
-  });
 
   const handleSupportSubmit = (e) => {
     e.preventDefault();
     addToast('Support ticket submitted! Ticket ID: #SR-' + Math.floor(Math.random() * 10000));
     setIsSupportOpen(false);
     setSupportForm({ subject: '', priority: 'Medium', message: '' });
-  };
-
-  const toggleFeature = (key) => {
-    setFeatureToggles(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const features = [
@@ -39,7 +30,7 @@ const Automation = () => {
           <p className="text-slate-500 mt-1">Operational intelligence to streamline your hotel workflows.</p>
         </div>
         <div className={cn(
-          "flex items-center gap-4 px-6 py-3 rounded-2xl border-2 transition-all duration-500",
+          "flex items-center justify-between w-full md:w-auto gap-4 px-6 py-3 rounded-2xl border-2 transition-all duration-500",
           isAutoPilot ? "bg-primary-600 border-primary-500 shadow-xl shadow-primary-500/20 text-white" : "bg-white border-slate-200"
         )}>
           <div className="flex flex-col">
@@ -70,7 +61,7 @@ const Automation = () => {
                     </div>
                     {isAutoPilot && (
                       <button 
-                        onClick={() => toggleFeature(feature.id)}
+                        onClick={() => toggleFeatureToggle(feature.id)}
                         className={cn("w-10 h-5 rounded-full relative transition-all", featureToggles[feature.id] ? "bg-emerald-500" : "bg-slate-200")}
                       >
                         <div className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all shadow-sm", featureToggles[feature.id] ? "right-0.5" : "left-0.5")}></div>
@@ -170,9 +161,9 @@ const Automation = () => {
               onChange={e => setSupportForm({...supportForm, message: e.target.value})}
             ></textarea>
           </div>
-          <div className="flex gap-3 pt-4">
-            <Button variant="secondary" className="flex-1" onClick={() => setIsSupportOpen(false)}>Cancel</Button>
-            <Button type="submit" className="flex-1 bg-primary-600">Submit Ticket</Button>
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button variant="secondary" className="flex-1 w-full" onClick={() => setIsSupportOpen(false)}>Cancel</Button>
+            <Button type="submit" className="flex-1 w-full bg-primary-600">Submit Ticket</Button>
           </div>
         </form>
       </Modal>

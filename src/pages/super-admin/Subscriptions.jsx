@@ -4,7 +4,7 @@ import { Card, Badge, Button, Modal } from '../../components/common/UI';
 import { useApp } from '../../context/AppContext';
 
 const Subscriptions = () => {
-  const { subscriptions, addSubscription, deleteSubscription, addToast } = useApp();
+  const { subscriptions, addSubscription, deleteSubscription, updateSubscription, addToast } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [formData, setFormData] = useState({ name: '', price: '', features: '', duration: 'Monthly' });
@@ -22,7 +22,7 @@ const Subscriptions = () => {
     };
 
     if (editingPlan) {
-      addToast('Plan updated successfully!');
+      updateSubscription(editingPlan.id, planData);
     } else {
       addSubscription(planData);
     }
